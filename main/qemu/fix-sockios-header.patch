@@ -1,0 +1,24 @@
+linux-user/syscall.c: Add #include <linux/sockios.h>
+
+From: Rajiv M Ranganath <rajiv.ranganath@atihita.com>
+
+This change is based on upstream alpine qemu-2.10.1-r2 patch adapted for
+qemu-2.11.0
+
+Signed-off-by: Rajiv M Ranganath <rajiv.ranganath@atihita.com>
+---
+ linux-user/syscall.c |    1 +
+ 1 file changed, 1 insertion(+)
+
+diff --git a/linux-user/syscall.c b/linux-user/syscall.c
+index 11c9116..19e38e3 100644
+--- a/linux-user/syscall.c
++++ b/linux-user/syscall.c
+@@ -59,6 +59,7 @@ int __clone2(int (*fn)(void *), void *child_stack_base,
+ #include <linux/icmp.h>
+ #include <linux/icmpv6.h>
+ #include <linux/errqueue.h>
++#include <linux/sockios.h>
+ #include <linux/random.h>
+ #include "qemu-common.h"
+ #ifdef CONFIG_TIMERFD
