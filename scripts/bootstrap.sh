@@ -87,37 +87,3 @@ CTARGET=$TARGET_ARCH BOOTSTRAP=nobase APKBUILD=$(apkbuildname gcc) abuild -r
 
 # Cross build-base
 CTARGET=$TARGET_ARCH BOOTSTRAP=nobase APKBUILD=$(apkbuildname build-base) abuild -r
-
-msg "Cross building base system"
-
-# add implicit target prerequisite packages
-apk info --quiet --installed --root "$CBUILDROOT" libgcc libstdc++ musl-dev || \
-	${SUDO_APK} --root "$CBUILDROOT" add --repository "$REPODEST/main" libgcc libstdc++ musl-dev
-
-# ordered cross-build
-for PKG in fortify-headers linux-headers musl libc-dev pkgconf zlib \
-	   busybox busybox-initscripts binutils make \
-	   libressl libfetch apk-tools \
-	   gmp mpfr3 mpc1 isl cloog gcc \
-	   openrc alpine-conf alpine-baselayout alpine-keys alpine-base build-base \
-	   attr libcap patch sudo acl fakeroot tar \
-	   pax-utils abuild openssh \
-	   ncurses libcap-ng util-linux lvm2 popt xz cryptsetup kmod lddtree mkinitfs \
-	   community/go libffi community/ghc \
-	   $KERNEL_PKG ; do
-
-	CHOST=$TARGET_ARCH BOOTSTRAP=bootimage APKBUILD=$(apkbuildname $PKG) abuild -r
-
-	case "$PKG" in
-	fortify-headers | libc-dev | build-base)
-		# headers packages which are implicit but mandatory dependency
-		apk info --quiet --installed --root "$CBUILDROOT" $PKG || \
-			${SUDO_APK} --update --root "$CBUILDROOT" --repository "$REPODEST/main" add $PKG
-		;;
-	musl | gcc)
-		# target libraries rebuilt, force upgrade
-		[ "$(apk upgrade --root "$CBUILDROOT" --repository "$REPODEST/main" --available --simulate | wc -l)" -gt 1 ] &&
-			${SUDO_APK} upgrade --root "$CBUILDROOT" --repository "$REPODEST/main" --available
-		;;
-	esac
-done
