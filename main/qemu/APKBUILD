@@ -1,0 +1,165 @@
+# Contributor: Stefano Stabellini <stabellini@kernel.org>
+# Maintainer: Rajiv M Ranganath <rajiv.ranganath@atihita.com>
+pkgname=qemu
+pkgver=2.11.0
+pkgrel=0
+pkgdesc="QEMU is a generic machine emulator and virtualizer"
+url="http://qemu.org/"
+arch="x86_64"
+license="GPL-2.0 LGPL-2"
+makedepends="bison
+	flex
+	glib-dev
+	glib-static
+	libcap-dev
+	ovmf
+	pixman-dev
+	zlib-dev
+	"
+options=""
+subpackages="$pkgname-aarch64
+	$pkgname-system-aarch64:system_aarch64
+	$pkgname-system-x86_64:system_x86_64
+	$pkgname-img
+	"
+
+source="https://download.qemu.org/$pkgname-$pkgver.tar.xz
+	http://snapshots.linaro.org/components/kernel/leg-virt-tianocore-edk2-upstream/2921/QEMU-AARCH64/RELEASE_GCC5/QEMU_EFI.fd
+
+	0001-elfload-load-PIE-executables-to-right-address.patch
+	0006-linux-user-signal.c-define-__SIGRTMIN-MAX-for-non-GN.patch
+	musl-F_SHLCK-and-F_EXLCK.patch
+	fix-sigevent-and-sigval_t.patch
+	xattr_size_max.patch
+	ignore-signals-33-and-64-to-allow-golang-emulation.patch
+	fix-sockios-header.patch
+	"
+builddir="$srcdir/$pkgname-$pkgver"
+
+prepare() {
+	default_prepare  # apply patches
+	sed -i 's/^VL_LDFLAGS=$/VL_LDFLAGS=-Wl,-z,execheap/' \
+		Makefile.target
+}
+
+_compile_common() {
+	CFLAGS="${CFLAGS/-Os/-O2}" "$builddir"/configure \
+		--prefix=/usr \
+		--localstatedir=/var \
+		--sysconfdir=/etc \
+		--libexecdir=/usr/lib/qemu \
+		--disable-blobs \
+		--disable-bsd-user \
+		--disable-debug-info \
+		--disable-glusterfs \
+		--disable-gtk \
+		--disable-guest-agent \
+		--disable-kvm \
+		--disable-linux-user \
+		--disable-sdl \
+		--disable-spice \
+		--disable-tpm \
+		--disable-vhost-net \
+		--disable-vhost-scsi \
+		--disable-vhost-user \
+		--disable-vhost-vsock \
+		--disable-virtfs \
+		--disable-vnc \
+		--disable-werror \
+		--disable-xen \
+		--cc="${CC:-gcc}" \
+		"$@"
+	make ARFLAGS="rc"
+}
+
+
+
+build() {
+	mkdir -p \
+		"$builddir/build-user" \
+		"$builddir/build-system"
+
+	cd "$builddir/build-user"
+	_compile_common \
+		--target-list=aarch64-linux-user \
+		--enable-linux-user \
+		--disable-system \
+		--disable-tools \
+		--static
+
+	cd "$builddir/build-system"
+	_compile_common \
+		--target-list="aarch64-softmmu,x86_64-softmmu" \
+		--enable-system
+}
+
+package() {
+	cd "$builddir"/build-user
+	make DESTDIR="$pkgdir" install
+
+	cd "$builddir"/build-system
+	make DESTDIR="$pkgdir" install
+}
+
+aarch64() {
+	pkgdesc="Qemu user aarch64 emulator"
+	options=""
+	depends=""
+
+	mkdir -p "$subpkgdir"/usr/bin
+	mv "$pkgdir"/usr/bin/qemu-aarch64 "$subpkgdir"/usr/bin/
+}
+
+system_aarch64() {
+	pkgdesc="Qemu system aarch64 emulator"
+	options=""
+	depends="qemu"
+
+	mkdir -p "$subpkgdir"/usr/bin
+	mv "$pkgdir"/usr/bin/qemu-system-aarch64 "$subpkgdir"/usr/bin/
+
+	mkdir -p "$subpkgdir"/usr/share/sdk-bios
+	cp "$srcdir"/QEMU_EFI.fd "$subpkgdir"/usr/share/sdk-bios/qemu_efi_aarch64.fd
+}
+
+system_x86_64() {
+	pkgdesc="Qemu system x86_64 emulator"
+	options=""
+	depends="qemu"
+
+	mkdir -p "$subpkgdir"/usr/bin
+	mv "$pkgdir"/usr/bin/qemu-system-x86_64 "$subpkgdir"/usr/bin/
+
+	mkdir -p "$subpkgdir"/usr/share/sdk-bios
+	cp /usr/share/ovmf/bios.bin "$subpkgdir"/usr/share/sdk-bios/qemu_efi_x86_64.fd
+	chmod 644 "$subpkgdir"/usr/share/sdk-bios/qemu_efi_x86_64.fd
+
+	install -Dm644 "$builddir"/pc-bios/kvmvapic.bin \
+		"$subpkgdir"/usr/share/qemu/kvmvapic.bin
+	install -Dm644 "$builddir"/pc-bios/vgabios-stdvga.bin \
+		"$subpkgdir"/usr/share/qemu/vgabios-stdvga.bin
+	install -Dm644 "$builddir"/pc-bios/efi-virtio.rom \
+		"$subpkgdir"/usr/share/qemu/efi-virtio.rom
+}
+
+img() {
+	pkgdesc="QEMU command line tool for manipulating disk images"
+	depends=""
+	options=""
+
+	mkdir -p "$subpkgdir"/usr/bin
+	mv "$pkgdir"/usr/bin/qemu-img \
+		"$pkgdir"/usr/bin/qemu-io \
+		"$pkgdir"/usr/bin/qemu-nbd \
+		"$subpkgdir"/usr/bin/
+}
+
+sha512sums="902cb11bcfde03a139efb8e5af978364d4160c9943142b1b3f92045066bf004aad7733ddb4d033aab40559cb00a79c907e0ffecf546e4a1a3659c19ec463940e  qemu-2.11.0.tar.xz
+792fb1515dbb5696d8f67c9e0a9f3580bf4ba704f17bf4c5859b2789dc8baabeff4d0992bd90e784c5bb157f96900b04b3990f6db8170a96282e8de7cff0915d  QEMU_EFI.fd
+405008589cad1c8b609eca004d520bf944366e8525f85a19fc6e283c95b84b6c2429822ba064675823ab69f1406a57377266a65021623d1cd581e7db000134fd  0001-elfload-load-PIE-executables-to-right-address.patch
+ec84b27648c01c6e58781295dcd0c2ff8e5a635f9836ef50c1da5d0ed125db1afc4cb5b01cb97606d6dd8f417acba93e1560d9a32ca29161a4bb730b302440ea  0006-linux-user-signal.c-define-__SIGRTMIN-MAX-for-non-GN.patch
+224f5b44da749921e8a821359478c5238d8b6e24a9c0b4c5738c34e82f3062ec4639d495b8b5883d304af4a0d567e38aa6623aac1aa3a7164a5757c036528ac0  musl-F_SHLCK-and-F_EXLCK.patch
+5da8114b9bd2e62f0f1f0f73f393fdbd738c5dea827ea60cedffd6f6edd0f5a97489c7148d37a8ec5a148d4e65d75cbefe9353714ee6b6f51a600200133fc914  fix-sigevent-and-sigval_t.patch
+4b1e26ba4d53f9f762cbd5cea8ef6f8062d827ae3ae07bc36c5b0c0be4e94fc1856ad2477e8e791b074b8a25d51ed6d0ddd75e605e54600e5dd0799143793ce4  xattr_size_max.patch
+fd178f2913639a0c33199b3880cb17536961f2b3ff171c12b27f4be6bca032d6b88fd16302d09c692bb34883346babef5c44407a6804b20a39a465bb2bc85136  ignore-signals-33-and-64-to-allow-golang-emulation.patch
+402c165b939577bba9104842e700bc836ee2cf33e08a0a9422fe03e6e27e99e4230be0b0d541676139a9c2fcf0ac1c8ec087d057091c9f543275d7f372cf2651  fix-sockios-header.patch"
