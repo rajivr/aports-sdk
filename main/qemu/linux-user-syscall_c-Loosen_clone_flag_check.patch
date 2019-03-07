@@ -1,0 +1,34 @@
+commit e215ede9f7443c035fbaa19ad72248da1d5b5798
+Author: Will Newton <willn@resin.io>
+Date:   Wed Jun 7 10:12:17 2017 +0100
+
+    linux-user/syscall.c: Loosen clone flag check
+    
+    The golang runtime calls clone without the CLONE_SYSVMEM flag
+    but it wants thread semantics. Make this flag optional so golang
+    binaries will start.
+    
+    Signed-off-by: Will Newton <willn@resin.io>
+
+diff --git a/linux-user/syscall.c b/linux-user/syscall.c
+index 643b883..1dab056 100644
+--- a/linux-user/syscall.c
++++ b/linux-user/syscall.c
+@@ -129,7 +129,7 @@
+  */
+ #define CLONE_THREAD_FLAGS                              \
+     (CLONE_VM | CLONE_FS | CLONE_FILES |                \
+-     CLONE_SIGHAND | CLONE_THREAD | CLONE_SYSVSEM)
++     CLONE_SIGHAND | CLONE_THREAD)
+ 
+ /* These flags are ignored:
+  * CLONE_DETACHED is now ignored by the kernel;
+@@ -146,7 +146,7 @@
+ /* Flags for thread creation which we can implement within QEMU itself */
+ #define CLONE_OPTIONAL_THREAD_FLAGS                             \
+     (CLONE_SETTLS | CLONE_PARENT_SETTID |                       \
+-     CLONE_CHILD_CLEARTID | CLONE_CHILD_SETTID | CLONE_PARENT)
++     CLONE_CHILD_CLEARTID | CLONE_CHILD_SETTID | CLONE_PARENT | CLONE_SYSVSEM)
+ 
+ #define CLONE_INVALID_FORK_FLAGS                                        \
+     (~(CSIGNAL | CLONE_OPTIONAL_FORK_FLAGS | CLONE_IGNORED_FLAGS))
